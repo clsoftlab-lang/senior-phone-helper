@@ -1,0 +1,10 @@
+{
+  "functions": [
+    { "id": "call", "label": "전화 걸기", "icon": "phone", "action": "call", "color": "#16a34a", "hint": "가족이나 친구에게 전화를 걸어요." },
+    { "id": "sms", "label": "문자 보내기", "icon": "envelope", "action": "sms", "color": "#2563eb", "hint": "짧은 글을 보내요." },
+    { "id": "kakao", "label": "카카오톡 열기", "icon": "chat", "action": "kakao", "color": "#ca8a04", "hint": "카카오톡을 실행해요." },
+    { "id": "camera", "label": "사진 찍기", "icon": "camera", "action": "camera", "color": "#7c3aed", "hint": "카메라로 사진을 찍어요." },
+    { "id": "medication", "label": "복약 알림", "icon": "pill", "action": "medication", "color": "#0891b2", "hint": "약 먹을 시간을 알려줘요." },
+    { "id": "sos", "label": "긴급 도움 (SOS)", "icon": "sos", "action": "sos", "color": "#dc2626", "hint": "보호자에게 도움을 요청해요." }
+  ]
+}

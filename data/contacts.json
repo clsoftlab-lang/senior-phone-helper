@@ -1,0 +1,52 @@
+{
+  "contacts": [
+    {
+      "id": "c1",
+      "name": "김영수",
+      "relation": "아들",
+      "phone": "010-0000-0001",
+      "color": "#2563eb",
+      "favorite": true
+    },
+    {
+      "id": "c2",
+      "name": "박미경",
+      "relation": "딸",
+      "phone": "010-0000-0002",
+      "color": "#db2777",
+      "favorite": true
+    },
+    {
+      "id": "c3",
+      "name": "이준호",
+      "relation": "손자",
+      "phone": "010-0000-0003",
+      "color": "#16a34a",
+      "favorite": true
+    },
+    {
+      "id": "c4",
+      "name": "정순자",
+      "relation": "친구",
+      "phone": "010-0000-0004",
+      "color": "#ea580c",
+      "favorite": true
+    },
+    {
+      "id": "c5",
+      "name": "행복 요양보호사",
+      "relation": "요양보호사",
+      "phone": "010-0000-0005",
+      "color": "#7c3aed",
+      "favorite": false
+    },
+    {
+      "id": "c6",
+      "name": "우리동네 병원",
+      "relation": "병원",
+      "phone": "02-000-0000",
+      "color": "#0891b2",
+      "favorite": false
+    }
+  ]
+}
