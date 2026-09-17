@@ -35,6 +35,8 @@ const PATHS = {
   contrast: `<circle ${P} cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" stroke="none"/>`,
   speaker: `<path ${P} d="M4 9v6h4l5 4V5L8 9Z"/><path ${P} d="M16 9.5a4 4 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10"/>`,
   calendar: `<rect ${P} x="4" y="5" width="16" height="15" rx="2"/><path ${P} d="M4 9h16M8 3v4M16 3v4"/>`,
+  robot: `<rect ${P} x="4" y="8" width="16" height="12" rx="3"/><path ${P} d="M12 4v4"/><circle cx="12" cy="4" r="1.3" fill="currentColor" stroke="none"/><circle cx="9.5" cy="13" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="13" r="1.2" fill="currentColor" stroke="none"/><path ${P} d="M9.5 16.5h5"/><path ${P} d="M4 12H2.5M21.5 12H20"/>`,
+  mic: `<rect ${P} x="9" y="3" width="6" height="11" rx="3"/><path ${P} d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/>`,
 };
 
 /**

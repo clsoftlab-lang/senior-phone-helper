@@ -10,6 +10,7 @@ import * as speech from './js/speech.js';
 import * as settings from './js/settings.js';
 import * as contacts from './js/contacts.js';
 import { icon, avatar } from './js/icons.js';
+import { askAI, AI_TASKS } from './ai/ai.js';
 
 const appEl = () => document.getElementById('app');
 const announcer = () => document.getElementById('announcer');
@@ -506,6 +507,262 @@ async function renderCaregiver() {
   return wrap;
 }
 
+/* --------------------------------------------------------------- AI views */
+
+// Shared: stream an AI answer into a large-text element, then read it aloud.
+// Works identically for the offline mock and the real backend (both stream).
+async function streamAnswer(targetEl, statusEl, task, payload) {
+  targetEl.textContent = '';
+  if (statusEl) statusEl.textContent = '생각하는 중이에요...';
+  say('잠시만요. 생각하고 있어요.');
+  let full = '';
+  try {
+    full = await askAI(task, payload, {
+      onToken: (chunk) => { targetEl.textContent += chunk; },
+    });
+  } catch (err) {
+    console.error('[ai] failed:', err);
+    full = '죄송해요, 지금은 답을 만들지 못했어요. 잠시 후 다시 해 주세요.';
+    targetEl.textContent = full;
+  }
+  targetEl.textContent = full; // ensure final text is complete
+  if (statusEl) statusEl.textContent = '';
+  say(full); // read the whole answer aloud via TTS
+  return full;
+}
+
+// Voice input helper (말로 입력). Uses Web Speech recognition when available.
+function speechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  return typeof SR === 'function' ? new SR() : null;
+}
+
+function renderAiHub() {
+  const wrap = el(`
+    <section class="view" aria-labelledby="ai-h">
+      <h1 id="ai-h" class="view-title">${icon('robot', 44)} AI 도우미</h1>
+      <p class="lead">무엇이든 쉽게 도와드려요. 아래에서 골라 누르세요.</p>
+      <div class="ai-grid" role="list">
+        <a class="ai-card" role="listitem" href="#/ai/chat" data-label="쉬운 도우미 챗봇">
+          <span class="ai-ico">${icon('chat', 46)}</span>
+          <span class="ai-text"><span class="ai-title">쉬운 도우미 챗봇</span><span class="ai-sub">"어떻게 하나요?" 물어보면 쉽게 알려드려요.</span></span>
+          <span class="ai-go">${icon('back', 26)}</span>
+        </a>
+        <a class="ai-card" role="listitem" href="#/ai/sms" data-label="말로 문자 초안 만들기">
+          <span class="ai-ico">${icon('mic', 46)}</span>
+          <span class="ai-text"><span class="ai-title">말로 문자 초안 만들기</span><span class="ai-sub">하고 싶은 말을 하면 정중한 문자로 만들어 드려요.</span></span>
+          <span class="ai-go">${icon('back', 26)}</span>
+        </a>
+        <a class="ai-card" role="listitem" href="#/ai/today" data-label="오늘 안내">
+          <span class="ai-ico">${icon('calendar', 46)}</span>
+          <span class="ai-text"><span class="ai-title">오늘 안내</span><span class="ai-sub">오늘 날짜와 알림을 큰 글씨로 알려드려요.</span></span>
+          <span class="ai-go">${icon('back', 26)}</span>
+        </a>
+      </div>
+      <p class="muted center">데모에서는 인터넷 없이도 답해드려요. (실제 AI 연결은 README 참고)</p>
+    </section>`);
+  wrap.querySelectorAll('.ai-card').forEach((a) => {
+    a.addEventListener('focus', () => announce(a.dataset.label));
+  });
+  return wrap;
+}
+
+// (1) 쉬운 도우미 챗봇
+function renderAiChat() {
+  const wrap = el(`
+    <section class="view" aria-labelledby="aic-h">
+      <h1 id="aic-h" class="view-title">${icon('chat', 40)} 쉬운 도우미 챗봇</h1>
+      <p class="lead">궁금한 것을 크게 적거나, 아래 단추를 누르세요.</p>
+
+      <div class="ai-chips" id="ai-chips" role="group" aria-label="자주 묻는 질문"></div>
+
+      <label class="field"><span>질문</span>
+        <input id="ai-q" class="input" type="text" placeholder="예: 문자 보내는 법 알려줘" autocomplete="off">
+      </label>
+      <button type="button" class="btn btn-primary big-block" data-act="ask">${icon('chat', 26)} 물어보기</button>
+
+      <div class="ai-answer card" id="ai-answer" aria-live="polite" tabindex="-1">
+        <p class="muted" id="ai-status">궁금한 것을 물어보시면 여기에 크게 알려드릴게요.</p>
+        <p class="ai-answer-text" id="ai-answer-text"></p>
+      </div>
+      <button type="button" class="btn btn-ghost big-block" data-act="repeat">${icon('speaker', 26)} 다시 읽어주기</button>
+    </section>`);
+
+  const chips = wrap.querySelector('#ai-chips');
+  const questionsFromData = (tutorials || []).map((t) => `${t.title.replace(/\s*법$/, '')} 어떻게 해요?`);
+  const fallbackChips = ['문자 보내는 법', '사진 찍는 법', '와이파이 연결하는 법'];
+  (questionsFromData.length ? questionsFromData : fallbackChips).forEach((q) => {
+    const c = el(`<button type="button" class="ai-chip" data-q="${esc(q)}">${esc(q)}</button>`);
+    chips.appendChild(c);
+  });
+
+  const input = wrap.querySelector('#ai-q');
+  const answer = wrap.querySelector('#ai-answer-text');
+  const status = wrap.querySelector('#ai-status');
+  let last = '';
+
+  async function ask(q) {
+    const question = (q || input.value || '').trim();
+    if (!question) { say('궁금한 것을 적어 주세요.'); input.focus(); return; }
+    input.value = question;
+    last = await streamAnswer(answer, status, AI_TASKS.HELP, { question });
+    wrap.querySelector('#ai-answer').focus();
+  }
+
+  wrap.addEventListener('click', (e) => {
+    const chip = e.target.closest('.ai-chip');
+    if (chip) { ask(chip.dataset.q); return; }
+    const act = e.target.closest('[data-act]');
+    if (!act) return;
+    if (act.dataset.act === 'ask') ask();
+    if (act.dataset.act === 'repeat') { if (last) say(last); else say('먼저 궁금한 것을 물어보세요.'); }
+  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') ask(); });
+  return wrap;
+}
+
+// (2) 말로 문자 초안 만들기
+async function renderAiSms() {
+  const favs = await contacts.favorites().catch(() => []);
+  const options = favs.map((c) => `<option value="${esc(c.name)}">${esc(c.name)} (${esc(c.relation)})</option>`).join('');
+  const sr = speechRecognition();
+
+  const wrap = el(`
+    <section class="view" aria-labelledby="ais-h">
+      <h1 id="ais-h" class="view-title">${icon('mic', 40)} 말로 문자 초안 만들기</h1>
+      <p class="lead">하고 싶은 말을 말하거나 적으면 정중한 문자로 만들어 드려요.</p>
+
+      <label class="field"><span>받는 사람 (고르기)</span>
+        <select id="ai-to" class="input"><option value="">— 선택 안 함 —</option>${options}</select>
+      </label>
+
+      <label class="field"><span>하고 싶은 말</span>
+        <input id="ai-intent" class="input" type="text" placeholder="예: 오늘 저녁 같이 먹자고" autocomplete="off">
+      </label>
+      <button type="button" class="btn btn-ghost big-block" data-act="mic" ${sr ? '' : 'disabled'}>
+        ${icon('mic', 26)} ${sr ? '말로 입력하기' : '이 기기는 말로 입력을 지원하지 않아요'}
+      </button>
+      <button type="button" class="btn btn-primary big-block" data-act="make">${icon('envelope', 26)} 문자 초안 만들기</button>
+
+      <div class="ai-answer card" id="ai-draft-box" aria-live="polite" tabindex="-1">
+        <p class="muted" id="ai-draft-status">만들어진 문자가 여기에 크게 나와요.</p>
+        <p class="ai-answer-text" id="ai-draft"></p>
+      </div>
+      <button type="button" class="btn btn-ghost big-block" data-act="repeat">${icon('speaker', 26)} 다시 읽어주기</button>
+      <button type="button" class="btn btn-primary big-block" data-act="send" disabled>${icon('send', 26)} 이 내용으로 문자 보내기</button>
+    </section>`);
+
+  const intent = wrap.querySelector('#ai-intent');
+  const toSel = wrap.querySelector('#ai-to');
+  const draft = wrap.querySelector('#ai-draft');
+  const status = wrap.querySelector('#ai-draft-status');
+  const sendBtn = wrap.querySelector('[data-act="send"]');
+  let last = '';
+
+  async function make() {
+    const text = (intent.value || '').trim();
+    if (!text) { say('하고 싶은 말을 적거나 말해 주세요.'); intent.focus(); return; }
+    last = await streamAnswer(draft, status, AI_TASKS.SMS_DRAFT, { intent: text, to: toSel.value || '' });
+    sendBtn.disabled = false;
+    wrap.querySelector('#ai-draft-box').focus();
+  }
+
+  function startMic() {
+    if (!sr) return;
+    try {
+      sr.lang = 'ko-KR';
+      sr.interimResults = false;
+      sr.maxAlternatives = 1;
+      say('말씀하세요. 듣고 있어요.');
+      status.textContent = '🎤 듣고 있어요... 하고 싶은 말을 말씀하세요.';
+      sr.onresult = (ev) => {
+        const said = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : '';
+        if (said) { intent.value = said; status.textContent = ''; toast('들은 말: ' + said); make(); }
+      };
+      sr.onerror = () => { status.textContent = ''; say('잘 못 들었어요. 다시 말하거나 적어 주세요.'); };
+      sr.onend = () => { if (status.textContent.startsWith('🎤')) status.textContent = ''; };
+      sr.start();
+    } catch (err) {
+      console.warn('[ai] speech recognition failed:', err);
+      say('말로 입력을 시작하지 못했어요. 직접 적어 주세요.');
+    }
+  }
+
+  wrap.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]');
+    if (!act) return;
+    switch (act.dataset.act) {
+      case 'mic': startMic(); break;
+      case 'make': make(); break;
+      case 'repeat': if (last) say(last); else say('먼저 문자 초안을 만들어 주세요.'); break;
+      case 'send': sendDraft(); break;
+      default: break;
+    }
+  });
+  intent.addEventListener('keydown', (e) => { if (e.key === 'Enter') make(); });
+
+  function sendDraft() {
+    if (!last) { say('먼저 문자 초안을 만들어 주세요.'); return; }
+    const name = toSel.value || '';
+    const target = favs.find((c) => c.name === name);
+    showDialog({
+      title: name ? `${name} 님께 이 문자를 보낼까요?` : '이 문자를 보낼까요?',
+      body: `<p class="big">${esc(last)}</p><p class="muted">데모 모드예요. 실제 휴대폰에서는 문자 앱이 이 내용으로 열립니다.</p>`,
+      confirmLabel: '문자 앱 열기', cancelLabel: '그만두기',
+      onConfirm: () => {
+        say('문자 앱을 엽니다.');
+        const num = target ? target.phone.replace(/[^0-9+]/g, '') : '';
+        try { window.location.href = `sms:${num}?body=${encodeURIComponent(last)}`; } catch { /* ignore */ }
+        toast('문자 앱 열기를 시도했어요. (데모)');
+      },
+    });
+  }
+
+  return wrap;
+}
+
+// (3) 오늘 안내
+async function renderAiToday() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const dayStr = now.toLocaleDateString('ko-KR', { weekday: 'long' });
+
+  // Build reminders grounded in the app's own state (medication toggle, etc.).
+  const reminders = [];
+  const med = store.load('medication', { on: false });
+  if (med.on) reminders.push('약 드실 시간을 잊지 마세요. 복약 알림이 켜져 있어요.');
+
+  const wrap = el(`
+    <section class="view" aria-labelledby="ait-h">
+      <h1 id="ait-h" class="view-title">${icon('calendar', 40)} 오늘 안내</h1>
+      <p class="lead">오늘 하루를 큰 글씨로 알려드려요.</p>
+      <div class="ai-answer card" id="ai-today-box" aria-live="polite" tabindex="-1">
+        <p class="muted" id="ai-today-status">오늘 안내를 준비하고 있어요...</p>
+        <p class="ai-answer-text" id="ai-today"></p>
+      </div>
+      <button type="button" class="btn btn-primary big-block" data-act="refresh">${icon('calendar', 26)} 다시 안내받기</button>
+      <button type="button" class="btn btn-ghost big-block" data-act="repeat">${icon('speaker', 26)} 다시 읽어주기</button>
+    </section>`);
+
+  const out = wrap.querySelector('#ai-today');
+  const status = wrap.querySelector('#ai-today-status');
+  let last = '';
+
+  async function run() {
+    last = await streamAnswer(out, status, AI_TASKS.DAILY, { date: dateStr, day: dayStr, reminders });
+  }
+
+  wrap.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]');
+    if (!act) return;
+    if (act.dataset.act === 'refresh') run();
+    if (act.dataset.act === 'repeat') { if (last) say(last); }
+  });
+
+  setTimeout(run, 80); // auto-generate on open
+  return wrap;
+}
+
 /* ------------------------------------------------------------------- toast */
 
 let toastTimer = null;
@@ -527,6 +784,10 @@ const routes = {
   '/settings': renderSettings,
   '/caregiver': renderCaregiver,
   '/sos': renderSos,
+  '/ai': renderAiHub,
+  '/ai/chat': renderAiChat,
+  '/ai/sms': renderAiSms,
+  '/ai/today': renderAiToday,
 };
 
 let currentRoute = '/';
@@ -552,7 +813,8 @@ async function render() {
   // highlight active nav item
   document.querySelectorAll('.nav-item').forEach((n) => {
     const active = n.getAttribute('href') === '#' + (hash === '/' ? '/' : hash) ||
-      (hash.startsWith('/tutorial') && n.dataset.match === 'tutorials');
+      (hash.startsWith('/tutorial') && n.dataset.match === 'tutorials') ||
+      (hash.startsWith('/ai') && n.dataset.match === 'ai');
     n.setAttribute('aria-current', active ? 'page' : 'false');
   });
 

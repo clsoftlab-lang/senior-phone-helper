@@ -27,6 +27,41 @@ text-to-speech voice guidance.
 - **Caregiver settings** — large UI to register the SOS guardian and add/remove contacts.
 - **Extras** — today's date + weekday shown large, medication reminder toggle, a giant always-present "back" button so a wrong tap is never scary.
 
+## 🤖 AI 기능 (API 연동)
+
+Three senior-friendly AI features live under the **AI 도우미** tab, all with big
+text and read aloud via TTS:
+
+1. **AI 쉬운 도우미 챗봇** — plain-language answers to "how do I…" phone questions.
+2. **말로 문자 초안 만들기** — turn a short spoken or typed intent into a polite SMS draft.
+3. **오늘 안내** — a simple, large-text daily summary (date + reminders).
+
+**Demo = mock (default).** With `ai/config.js`'s `AI_ENDPOINT` empty, everything
+runs offline through a deterministic Korean MockProvider that reuses the app's
+own contacts and tutorials data. No network, no key, nothing leaves the browser.
+
+**Enable real Claude:** run the backend proxy in [`server/`](./server/), which
+holds the key server-side and streams answers:
+
+```bash
+cd server
+cp .env.example .env          # paste your key into .env
+npm install && npm start      # http://localhost:8787
+```
+
+Then set the endpoint in `ai/config.js`:
+
+```js
+export const AI_ENDPOINT = "http://localhost:8787/api/ai";
+```
+
+The proxy calls Claude (model **`claude-opus-5`**) with your `ANTHROPIC_API_KEY`.
+
+> **🔒 SECURITY: keys are server-side only.** The API key is read from
+> `ANTHROPIC_API_KEY` on the server and is **NEVER** placed in the browser,
+> `ai/config.js`, or the repository. `ai/config.js` holds only a URL, and `.env`
+> is gitignored.
+
 ## Run locally
 
 No build step. Any static server works:

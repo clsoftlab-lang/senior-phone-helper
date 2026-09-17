@@ -15,6 +15,12 @@ Thumbs.db
 .vscode/
 *.swp
 
+# Secrets — NEVER commit real API keys. Keys live server-side only.
+.env
+.env.*
+!.env.example
+server/.env
+
 # Build / temp
 dist/
 build/

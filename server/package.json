@@ -1,0 +1,20 @@
+{
+  "name": "senior-phone-helper-ai-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Optional backend proxy that keeps ANTHROPIC_API_KEY server-side and streams Claude answers to the 도전 (도움전화) front-end.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "CLSOFTLAB (씨엘소프트랩), Dr. Lee Il-guk (이일국)",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node --env-file=.env index.mjs",
+    "start:noenv": "node index.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": ">=0.40.0"
+  }
+}
