@@ -55,12 +55,37 @@ Then set the endpoint in `ai/config.js`:
 export const AI_ENDPOINT = "http://localhost:8787/api/ai";
 ```
 
-The proxy calls Claude (model **`claude-opus-5`**) with your `ANTHROPIC_API_KEY`.
+The proxy calls Claude (cost-first default **`claude-haiku-4-5`**, configurable
+via `AI_MODEL`) with your `ANTHROPIC_API_KEY`.
 
 > **🔒 SECURITY: keys are server-side only.** The API key is read from
 > `ANTHROPIC_API_KEY` on the server and is **NEVER** placed in the browser,
 > `ai/config.js`, or the repository. `ai/config.js` holds only a URL, and `.env`
 > is gitignored.
+
+## ⚙️ 고도화 — 무인·저비용 실 AI 연동
+
+Real Claude, wired to be **autonomous (무인)** and **cost-efficient (저비용)** —
+and it never breaks, because it always falls back to the offline mock.
+
+- **Cost model.** Default **`claude-haiku-4-5`** (~**$1 / $5 per MTok** in/out).
+  **Prompt caching** on the stable per-task system prompt makes repeat calls
+  cheaper; output is capped per task (~500–700 tokens). A **monthly token cap**
+  (`AI_MONTHLY_TOKEN_CAP`, default 2M) plus a per-IP rate limit keep spend
+  bounded. Rough estimate: **~$2–3 per 1,000 requests**. Raise `AI_MODEL` to
+  `claude-sonnet-5` / `claude-opus-5` for higher quality (and higher cost).
+- **무인 free hosting.** A [Cloudflare Workers](./server/) variant
+  (`server/worker.js` + `wrangler.toml`) deploys in one command on the free tier —
+  no server to babysit. `wrangler secret put ANTHROPIC_API_KEY`, `wrangler deploy`.
+- **Never breaks.** On a network error, a non-OK status, or a `429 {fallback:true}`
+  (rate limit / budget), the browser silently uses its offline mock.
+- **Autonomous "오늘 안내".** The home screen auto-generates a warm daily briefing
+  on load (date, medication/reminders, a weather-agnostic health tip) via `askAI`
+  and reads it aloud with TTS — working offline through the mock.
+
+> **🔒 API keys are server-side only — never in the browser or repo.** The key
+> lives only in `ANTHROPIC_API_KEY` (Node `.env`, gitignored) or as a Cloudflare
+> Worker secret. `ai/config.js` holds only a URL.
 
 ## Run locally
 

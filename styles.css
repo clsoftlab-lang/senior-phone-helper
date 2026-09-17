@@ -135,6 +135,15 @@ body {
 .today-date { margin: 0; font-size: 1.25em; font-weight: 900; }
 .today-day { margin: 0; font-size: 1em; color: var(--text-soft); font-weight: 700; }
 
+/* ------------------------------------------- autonomous 오늘 안내 briefing */
+.today-brief { margin-bottom: 16px; }
+.today-brief:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
+.brief-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.brief-ico { color: var(--primary); display: flex; }
+.brief-title { margin: 0; font-size: 1.2em; font-weight: 800; }
+.brief-status { margin: 0 0 4px; }
+.today-brief .ai-answer-text { font-size: 1.15em; }
+
 /* --------------------------------------------------------- contact grid */
 .contact-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 8px;

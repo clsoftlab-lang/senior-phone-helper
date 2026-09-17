@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 CLSOFTLAB (씨엘소프트랩), Dr. Lee Il-guk (이일국)
+#
+# Cloudflare Workers config for the 도전 (도움전화) AI proxy (server/worker.js).
+# Free tier = no server to babysit (무인). The API key is a Worker SECRET, never
+# committed here:   wrangler secret put ANTHROPIC_API_KEY
+
+name = "senior-phone-helper-ai"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Non-secret config. Raise AI_MODEL to claude-sonnet-5 / claude-opus-5 for higher
+# quality (and higher cost). Cost-first default is claude-haiku-4-5.
+[vars]
+AI_MODEL = "claude-haiku-4-5"
+AI_EFFORT = "low"
+ALLOWED_ORIGIN = "*"
+
+# The API key is NOT here. Set it once as an encrypted secret:
+#   wrangler secret put ANTHROPIC_API_KEY

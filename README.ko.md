@@ -59,11 +59,37 @@ npm install && npm start      # http://localhost:8787
 export const AI_ENDPOINT = "http://localhost:8787/api/ai";
 ```
 
-프록시는 서버의 `ANTHROPIC_API_KEY`로 Claude(모델 **`claude-opus-5`**)를 호출합니다.
+프록시는 서버의 `ANTHROPIC_API_KEY`로 Claude(비용 우선 기본 모델
+**`claude-haiku-4-5`**, `AI_MODEL`로 변경 가능)를 호출합니다.
 
 > **🔒 보안: 키는 오직 서버에만.** API 키는 서버의 `ANTHROPIC_API_KEY`에서만
 > 읽으며, 브라우저·`ai/config.js`·저장소에는 **절대** 넣지 않습니다. `ai/config.js`에는
 > 주소(URL)만 들어가고, `.env`는 gitignore로 제외됩니다.
+
+## ⚙️ 고도화 — 무인·저비용 실 AI 연동
+
+실제 Claude를 **무인**·**저비용**으로 연결했습니다. 문제가 생겨도 항상 오프라인
+목업으로 되돌아가므로 앱이 절대 멈추지 않습니다.
+
+- **비용 모델.** 기본 **`claude-haiku-4-5`** (약 **$1 / $5 per MTok** 입력/출력).
+  작업별 고정 시스템 프롬프트에 **프롬프트 캐싱**을 적용해 반복 호출이 더 저렴하고,
+  출력은 작업별로 (~500–700 토큰) 제한합니다. **월 토큰 한도**(`AI_MONTHLY_TOKEN_CAP`,
+  기본 200만)와 IP별 요청 제한으로 비용을 묶어 둡니다. 대략 **1,000회당 약 $2–3**
+  수준입니다. 품질을 높이려면 `AI_MODEL`을 `claude-sonnet-5` / `claude-opus-5`로
+  올리면 됩니다(비용도 함께 증가).
+- **무인 무료 호스팅.** [Cloudflare Workers](./server/) 변형
+  (`server/worker.js` + `wrangler.toml`)은 무료 요금제에서 한 번의 명령으로
+  배포됩니다 — 관리할 서버가 없습니다. `wrangler secret put ANTHROPIC_API_KEY`,
+  `wrangler deploy`.
+- **절대 멈추지 않음.** 네트워크 오류, 비정상 응답, `429 {fallback:true}`(요청 제한
+  ·예산 초과) 시 브라우저가 조용히 오프라인 목업을 사용합니다.
+- **무인 "오늘 안내".** 첫 화면(홈)을 열면 오늘 안내(날짜, 복약·알림, 날씨와 무관한
+  건강 팁)를 `askAI`로 자동 생성해 음성(TTS)으로 읽어드립니다 — 오프라인 목업에서도
+  동작합니다.
+
+> **🔒 API 키는 오직 서버에만 — 브라우저나 저장소에는 절대 넣지 않습니다.** 키는
+> `ANTHROPIC_API_KEY`(Node `.env`, gitignore) 또는 Cloudflare Worker 시크릿에만
+> 존재하며, `ai/config.js`에는 주소(URL)만 들어갑니다.
 
 ## 로컬 실행
 

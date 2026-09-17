@@ -18,6 +18,10 @@ const announcer = () => document.getElementById('announcer');
 let tutorials = [];
 let funcs = [];
 
+// Autonomous "오늘 안내" home briefing — auto-runs on load, read aloud once.
+let homeBriefingSpoken = false;
+let lastHomeBriefing = '';
+
 /* ---------------------------------------------------------------- helpers */
 
 function announce(text) {
@@ -238,6 +242,16 @@ async function renderHome() {
         </div>
       </div>
 
+      <div class="today-brief card" id="home-brief" aria-label="오늘 안내" aria-live="polite" tabindex="-1">
+        <div class="brief-head">
+          <span class="brief-ico">${icon('robot', 30)}</span>
+          <h2 class="brief-title">오늘 안내</h2>
+        </div>
+        <p class="brief-status muted" id="home-brief-status">오늘 안내를 준비하고 있어요...</p>
+        <p class="ai-answer-text" id="home-brief-text"></p>
+        <button type="button" class="btn btn-ghost big-block" data-act="brief-repeat">${icon('speaker', 26)} 다시 읽어주기</button>
+      </div>
+
       <h1 id="home-h" class="view-title">가족에게 전화하기</h1>
       <p class="lead">얼굴을 누르면 전화를 걸 수 있어요.</p>
       <div class="contact-grid" role="list" id="fav-grid"></div>
@@ -274,6 +288,31 @@ async function renderHome() {
     b.addEventListener('focus', () => announce(fn.label));
     fgrid.appendChild(b);
   });
+
+  // --- Autonomous 오늘 안내 daily briefing (auto-runs on load) ---------------
+  // Grounded in the app's own state, generated via askAI (so it also works
+  // offline through the mock). Read aloud once via the existing TTS.
+  const briefText = wrap.querySelector('#home-brief-text');
+  const briefStatus = wrap.querySelector('#home-brief-status');
+  const briefBox = wrap.querySelector('#home-brief');
+  briefBox.addEventListener('click', (e) => {
+    if (e.target.closest('[data-act="brief-repeat"]')) {
+      if (lastHomeBriefing) say(lastHomeBriefing);
+      else say('오늘 안내를 준비하고 있어요. 잠시만 기다려 주세요.');
+    }
+  });
+
+  const reminders = [];
+  const med = store.load('medication', { on: false });
+  if (med.on) reminders.push('약 드실 시간을 잊지 마세요. 복약 알림이 켜져 있어요.');
+  const briefPayload = { date: dateStr, day: dayStr, reminders };
+
+  // Speak aloud only the first time this session so returning home is quiet.
+  const speakAloud = !homeBriefingSpoken;
+  setTimeout(async () => {
+    lastHomeBriefing = await streamAnswer(briefText, briefStatus, AI_TASKS.DAILY, briefPayload, { speak: speakAloud });
+    homeBriefingSpoken = true;
+  }, speakAloud ? 140 : 40);
 
   return wrap;
 }
@@ -511,10 +550,10 @@ async function renderCaregiver() {
 
 // Shared: stream an AI answer into a large-text element, then read it aloud.
 // Works identically for the offline mock and the real backend (both stream).
-async function streamAnswer(targetEl, statusEl, task, payload) {
+async function streamAnswer(targetEl, statusEl, task, payload, { speak = true } = {}) {
   targetEl.textContent = '';
   if (statusEl) statusEl.textContent = '생각하는 중이에요...';
-  say('잠시만요. 생각하고 있어요.');
+  if (speak) say('잠시만요. 생각하고 있어요.');
   let full = '';
   try {
     full = await askAI(task, payload, {
@@ -527,7 +566,8 @@ async function streamAnswer(targetEl, statusEl, task, payload) {
   }
   targetEl.textContent = full; // ensure final text is complete
   if (statusEl) statusEl.textContent = '';
-  say(full); // read the whole answer aloud via TTS
+  if (speak) say(full);       // read the whole answer aloud via TTS
+  else announce(full);        // still announce to screen readers, no double voice
   return full;
 }
 
@@ -857,7 +897,14 @@ async function init() {
 
   window.addEventListener('hashchange', render);
   await render();
-  say('안녕하세요. 도전, 도움전화 앱이에요. 전화할 사람의 얼굴을 눌러 보세요.');
+  // On the home screen the autonomous "오늘 안내" briefing is the spoken welcome,
+  // so only greet by voice when we land elsewhere (avoids two voices at once).
+  const startRoute = location.hash.replace(/^#/, '') || '/';
+  if (startRoute !== '/' && startRoute !== '') {
+    say('안녕하세요. 도전, 도움전화 앱이에요. 전화할 사람의 얼굴을 눌러 보세요.');
+  } else {
+    announce('안녕하세요. 도전, 도움전화 앱이에요.');
+  }
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

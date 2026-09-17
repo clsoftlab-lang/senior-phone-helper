@@ -42,6 +42,10 @@ export async function askAI(task, payload = {}, { onToken } = {}) {
 /* ------------------------------------------------------- remote (real) */
 
 // POST to the backend proxy and stream the response body as plain-text chunks.
+// AUTO-FALLBACK to the offline mock on ANY problem — network error, non-OK
+// status, a 429 {fallback:true} cost-guardrail response, or a missing body — so
+// the app never breaks and keeps running unmanned (무인). Streaming via onToken
+// is preserved on both the real and the fallback paths.
 async function remoteProvider(endpoint, task, payload, onToken) {
   let res;
   try {
@@ -54,8 +58,10 @@ async function remoteProvider(endpoint, task, payload, onToken) {
     console.error('[ai] network error, falling back to mock:', err);
     return mockProvider(task, payload, onToken);
   }
+  // 429 {fallback:true} (rate limit / monthly token cap / upstream error) or any
+  // other non-OK status → quietly use the mock instead of showing an error.
   if (!res.ok || !res.body) {
-    console.error('[ai] backend returned', res.status, '- falling back to mock');
+    console.warn('[ai] backend returned', res.status, '- falling back to mock');
     return mockProvider(task, payload, onToken);
   }
 
@@ -233,6 +239,21 @@ async function mockDaily(payload) {
     lines.push('• 특별한 일정은 없어요. 편안한 하루 보내세요.');
   }
   if (callSuggest) { lines.push(''); lines.push(callSuggest); }
+
+  // A gentle, weather-agnostic health tip. Rotates by day so it feels fresh but
+  // stays deterministic (works offline, no network, no weather lookup).
+  const tips = [
+    '물을 자주 조금씩 드세요. 몸이 가벼워져요.',
+    '집 안에서 가볍게 몇 걸음 걸어 보세요. 다리에 힘이 생겨요.',
+    '어깨와 목을 천천히 돌려 주세요. 몸이 편안해져요.',
+    '창가에서 잠시 밝은 빛을 쬐어 보세요. 기분이 좋아져요.',
+    '식사는 거르지 말고 천천히 꼭꼭 씹어 드세요.',
+    '오늘 약이 있으면 잊지 말고 챙겨 드세요.',
+    '깊게 숨을 한 번 크게 들이쉬고 내쉬어 보세요.',
+  ];
+  const tip = tips[new Date().getDay() % tips.length];
+  lines.push('');
+  lines.push(`오늘의 건강 팁: ${tip}`);
   lines.push('');
   lines.push('오늘도 좋은 하루 되세요. 도움이 필요하면 언제든 저를 불러 주세요.');
   return lines.join('\n');
